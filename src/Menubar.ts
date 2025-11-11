@@ -159,21 +159,34 @@ export class Menubar extends EventEmitter {
       trayPos = this.tray.getBounds();
     }
 
-    // Default the window to the right if `trayPos` bounds are undefined or null.
+    // Default the window to the right if `trayPos` bounds are undefined or problematic.
     let noBoundsPosition = undefined;
-    if (
-      (trayPos === undefined || trayPos.x === 0) &&
-      this._options.windowPosition &&
-      this._options.windowPosition.startsWith('tray')
-    ) {
-      noBoundsPosition =
-        process.platform === 'win32' ? 'bottomRight' : 'topRight';
+    const trayBoundsInvalid = 
+      trayPos === undefined || 
+      trayPos.x === 0 || 
+      trayPos.y === 0 || 
+      (trayPos.width === 0 && trayPos.height === 0);
+
+    if (trayBoundsInvalid) {
+      noBoundsPosition = process.platform === 'win32' ? 'bottomRight' : 'topRight';
     }
 
+    // Use fallback position if we have invalid tray bounds or no windowPosition
+    const positionToUse = trayBoundsInvalid 
+      ? noBoundsPosition 
+      : (this._options.windowPosition || noBoundsPosition);
+
     const position = this.positioner.calculate(
-      this._options.windowPosition || noBoundsPosition,
-      trayPos,
+      positionToUse,
+      trayBoundsInvalid ? undefined : trayPos,
     ) as { x: number; y: number };
+
+    // Safety check: if position calculation returns invalid coords, use screen-based fallback
+    if (position.x < 0 || position.y < 0 || (position.x === 0 && position.y === 0)) {
+      const fallbackPosition = this.positioner.calculate('topRight') as { x: number; y: number };
+      position.x = fallbackPosition.x;
+      position.y = fallbackPosition.y;
+    }
 
     // Not using `||` because x and y can be zero.
     const x =

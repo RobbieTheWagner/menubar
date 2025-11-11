@@ -34,9 +34,16 @@ export function taskbarLocation(tray: Tray): TaskbarLocation {
 
   // TASKBAR LEFT
   if (workArea.x > 0) {
-    // Most likely Ubuntu hence assuming the window should be on top
-    if (isLinux && workArea.y > 0) return 'top';
-    // The workspace starts more on the right
+    // For Linux, be more conservative about detecting left taskbars
+    if (isLinux) {
+      // If both x and y are offset, likely top panel with some left offset
+      if (workArea.y > 0) return 'top';
+      // Only return 'left' if there's significant left offset but no top offset
+      if (workArea.x > 50 && workArea.y === 0) return 'left';
+      // Default to top for ambiguous cases on Linux
+      return 'top';
+    }
+    // The workspace starts more on the right (Windows behavior)
     return 'left';
   }
 
@@ -88,7 +95,8 @@ export function getWindowPosition(tray: Tray): WindowPosition {
 
       // Assign position for menubar
       if (traySide === 'top') {
-        return isLinux ? 'topRight' : 'trayCenter';
+        // Try trayCenter for Linux too - will fallback to topRight if tray bounds are invalid
+        return isLinux ? 'trayCenter' : 'trayCenter';
       }
       if (traySide === 'bottom') {
         return 'bottomRight';
